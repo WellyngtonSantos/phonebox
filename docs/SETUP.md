@@ -360,6 +360,18 @@ under **Settings › Security › Install from device storage**. The panel itsel
 affected. Thanks to [phongnguyen2277](https://github.com/phongnguyen2277) for finding this (#184).
 </details>
 
+<details><summary><b>On an x86 tablet the panel asks for a newer WebView, and the Play Store has none.</b></summary>
+
+Some older tablets have an Intel (x86) processor, such as the Galaxy Tab 3 10.1 (GT-P5200). On the one we tried, the
+Play Store offered no WebView or Chrome newer than 101, below the 105 the panel needs to scale widgets. On a rooted
+device running LineageOS (Android 7.0 or later), LineageOS's own x86 WebView can replace the system one: take
+`webview.apk` from [android_external_chromium-webview_prebuilt_x86](https://github.com/LineageOS/android_external_chromium-webview_prebuilt_x86)
+(the APK is stored with Git LFS), keep a copy of `/system/app/webview/webview.apk`, put the new APK in its place and
+restart the tablet. Version 119 worked on a GT-P5200 with LineageOS 14.1 (Android 7.1.2). `adb install -r` cannot do
+this, because the new APK is signed with a different key than the system one. Without root there is no newer
+WebView for these devices.
+</details>
+
 <details><summary><b>I want the volume keys to change the phone's volume.</b></summary>
 
 Turn off **Settings › General › Display › The phone's volume keys switch pages**.
