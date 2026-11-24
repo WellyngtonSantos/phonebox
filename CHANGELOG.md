@@ -32,6 +32,9 @@
 - Synced lyrics: a music video from the VEVO channel of an artist with a name of more than one word ("Tan Bionica -
   Song" from `TanBionicaVEVO`) finds its lyrics. The channel name drops the spaces, so the title was not split into
   artist and song (#551).
+- Shortcuts: an **Icon size** per shortcut (Settings › Shortcuts): Default, Medium, Large or Maximum, where the icon
+  fills the key. It applies to an emoji and an uploaded picture, on any key (Shortcut grid, Big button, cycle keys); a
+  program's own icon keeps its size (#542, [leosantana](https://github.com/leosantana)).
 - Synced lyrics: **Timing offset per player**, one `Name=ms` per line with the player's name as Now playing shows it
   (for example `Apple Music=1000`), for a player whose position runs behind the sound while others don't. On Windows,
   Apple Music now shows as "Apple Music" instead of "AppleInc" (#557,
