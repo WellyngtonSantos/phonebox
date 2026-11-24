@@ -23,7 +23,7 @@ public sealed record DiskInfo(string Name, double UsedGb, double TotalGb);
 
 public sealed record PcSnapshot(double? Cpu, double? CpuTemp, string CpuName, double RamUsedGb, double RamTotalGb,
     GpuInfo? Gpu, double NetDownBps, double NetUpBps, IReadOnlyList<DiskInfo> Disks, long UptimeSec,
-    IReadOnlyList<GpuInfo>? Gpus = null, double? CpuPower = null);
+    IReadOnlyList<GpuInfo>? Gpus = null, double? CpuPower = null, long Seq = 0);
 
 /// <summary>Samples CPU, RAM, network, disk and GPU metrics once a second.</summary>
 public sealed partial class SystemMonitor(ILogger<SystemMonitor> log, ConfigStore? config = null) : BackgroundService
@@ -39,6 +39,8 @@ public sealed partial class SystemMonitor(ILogger<SystemMonitor> log, ConfigStor
     private double? _cpuPower; // package watts: LibreHardwareMonitor on Windows, RAPL on Linux; none on macOS
     private double? _appleGpuTemp; // macOS: the GPU's temperature from the SMC, added to the ioreg GPU
     private IReadOnlyList<DiskInfo> _disks = [];
+    // counts samples, so the panel can tell a new one from the same one sent again (with a media or volume change)
+    private long _seq;
 
     public PcSnapshot? Snapshot() => _snap;
 
@@ -85,7 +87,8 @@ public sealed partial class SystemMonitor(ILogger<SystemMonitor> log, ConfigStor
                 Disks: _disks,
                 UptimeSec: Environment.TickCount64 / 1000,
                 Gpus: gpus,
-                CpuPower: _cpuPower);
+                CpuPower: _cpuPower,
+                Seq: ++_seq);
         }
     }
 

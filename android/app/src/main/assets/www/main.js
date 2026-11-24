@@ -136,6 +136,9 @@ export const D = { state: null, quotas: null, work: null, procs: null, push: {},
 export const HIST = 90;
 export const hist = { cpu: [], gpu: [], ram: [], vram: [], down: [], up: [], ping: [], gputemp: [], cputemp: [], hotspot: [], gpupower: [], gpuclock: [], cpupower: [] };
 export const pushHist = (k, v) => { const a = hist[k]; a.push(v ?? 0); if (a.length > HIST) a.shift(); };
+// the agent numbers its samples (pc.seq); a state sent again for a media or volume change carries the same one and
+// adds no point, so the charts move once per sample. Agents before seq send none: every state adds a point, as before
+let histSeq = null;
 
 // ---------------------------------------------------------------- helpers
 /** fetch() to the panel's local/USB feed proxy when the phone cannot reach an allowed public HTTPS feed directly. */
@@ -2665,7 +2668,8 @@ export function applyState(s, replayGen = null) {
   if (!$('overview').hidden) renderRulesBtn();
   {
     const pc = s.pc;
-    if (pc) {
+    if (pc && (pc.seq == null || pc.seq !== histSeq)) {
+      histSeq = pc.seq ?? null;
       pushHist('cpu', pc.cpu);
       pushHist('gpu', pc.gpu?.util);
       pushHist('ram', pc.ramUsedGb);
