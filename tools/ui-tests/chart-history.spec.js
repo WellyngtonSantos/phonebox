@@ -19,12 +19,15 @@ test('a state with the same pc sample adds no chart point; a new sample or an ag
     const sameSample = len();
     m.applyState(state({ cpu: 20, seq: 42 }));
     const newSample = len();
-    m.applyState(state({ cpu: 30, seq: 1 })); // a restarted agent counts from 1 again
+    m.applyState(state({ cpu: 29, seq: 1, runId: 'first-run' }));
+    m.applyState({ ...state({}), pc: null });
+    m.applyState(state({ cpu: 30, seq: 1, runId: 'second-run' }));
+    m.applyState(state({ cpu: 30, seq: 1, runId: 'second-run' }));
     const restarted = len();
     m.applyState(state({ cpu: 40 })); // an older agent: no seq
     m.applyState(state({ cpu: 40 }));
     const withoutSeq = len();
-    return { sameSample, newSample, restarted, withoutSeq, last: m.hist.cpu.slice(-4) };
+    return { sameSample, newSample, restarted, withoutSeq, last: m.hist.cpu.slice(-5) };
   });
-  expect(result).toEqual({ sameSample: 1, newSample: 2, restarted: 3, withoutSeq: 5, last: [20, 30, 40, 40] });
+  expect(result).toEqual({ sameSample: 1, newSample: 2, restarted: 4, withoutSeq: 6, last: [20, 29, 30, 40, 40] });
 });

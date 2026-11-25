@@ -8,19 +8,23 @@ using Xunit;
 public sealed class SystemMonitorSeqTests
 {
     [Fact]
-    public async Task EachSampleHasAHigherSeqThanTheOneBefore()
+    public void EachMonitorRunNumbersItsSamplesIndependently()
     {
-        var monitor = new SystemMonitor(NullLogger<SystemMonitor>.Instance);
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-        await monitor.StartAsync(cts.Token);
-        try
-        {
-            var first = await Next(monitor, 0, cts.Token);
-            var second = await Next(monitor, first.Seq, cts.Token);
-            Assert.True(first.Seq > 0);
-            Assert.True(second.Seq > first.Seq);
-        }
-        finally { await monitor.StopAsync(CancellationToken.None); }
+        using var monitor = new SystemMonitor(NullLogger<SystemMonitor>.Instance);
+        using var restarted = new SystemMonitor(NullLogger<SystemMonitor>.Instance);
+        var sample = new PcSnapshot(1, null, "cpu", 1, 2, null, 0, 0, [], 0);
+        monitor.PublishSample(sample);
+        var first = Assert.IsType<PcSnapshot>(monitor.Snapshot());
+        monitor.PublishSample(sample);
+        var second = Assert.IsType<PcSnapshot>(monitor.Snapshot());
+        restarted.PublishSample(sample);
+        var afterRestart = Assert.IsType<PcSnapshot>(restarted.Snapshot());
+        Assert.Equal(1, first.Seq);
+        Assert.Equal(2, second.Seq);
+        Assert.Equal(first.RunId, second.RunId);
+        Assert.Equal(first.Seq, afterRestart.Seq);
+        Assert.False(string.IsNullOrEmpty(first.RunId));
+        Assert.NotEqual(first.RunId, afterRestart.RunId);
     }
 
     [Fact]
@@ -31,12 +35,4 @@ public sealed class SystemMonitorSeqTests
         Assert.Contains("\"seq\":7", json);
     }
 
-    private static async Task<PcSnapshot> Next(SystemMonitor monitor, long after, CancellationToken ct)
-    {
-        while (true)
-        {
-            if (monitor.Snapshot() is { } s && s.Seq > after) return s;
-            await Task.Delay(100, ct);
-        }
-    }
 }
