@@ -56,3 +56,25 @@ export function placeWidget(w, cols, rows) {
 export function widgetsOnGrid(widgets, cols, rows) {
   return (widgets || []).filter((w) => placeWidget(w, cols, rows));
 }
+
+// Upright: the same widgets packed in reading order. Cells stay about as square as landscape ones. A widget wider
+// than the upright columns keeps its area: it gets as narrow as the columns and correspondingly taller (12 × 4 on
+// six columns becomes 6 × 8), so a page drawn for 12 × 6 fills the upright screen instead of its top half.
+// A phone uses 6 columns; a tablet with More rows uses 12, so more widgets sit next to each other.
+// The rows grow to fit.
+export function portraitSize(w, cols) {
+  const ww = Math.max(1, w?.w ?? 1), hh = Math.max(1, w?.h ?? 1);
+  if (ww <= cols) return { w: ww, h: hh };
+  return { w: cols, h: Math.ceil((ww * hh) / cols) };
+}
+
+export function portraitLayout(widgets, cols = 6) {
+  const occ = [], pos = new Map();
+  const free = (x, y, w, h) => { for (let r = y; r < y + h; r++) for (let c = x; c < x + w; c++) if (occ[r]?.[c]) return false; return true; };
+  const take = (x, y, w, h) => { for (let r = y; r < y + h; r++) { occ[r] = occ[r] || []; for (let c = x; c < x + w; c++) occ[r][c] = true; } };
+  for (const w of [...widgets].sort((a, b) => a.y - b.y || a.x - b.x)) {
+    const { w: ww, h: hh } = portraitSize(w, cols);
+    search: for (let y = 0; y < 200; y++) for (let x = 0; x + ww <= cols; x++) if (free(x, y, ww, hh)) { take(x, y, ww, hh); pos.set(w, { x, y, w: ww, h: hh }); break search; }
+  }
+  return { pos, rows: Math.max(12, occ.length) };
+}

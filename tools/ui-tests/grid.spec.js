@@ -67,3 +67,23 @@ test('widgets are placed, clipped or left out by the grid they land on', async (
   expect(r.phone).toEqual(['top', 'edge']);
   expect(r.tablet).toEqual(['top', 'tablet', 'edge']);
 });
+
+test('upright, a widget wider than the columns keeps its area, so a 12 × 6 page fills the screen', async ({ page }) => {
+  const r = await grid(page, (g) => {
+    // a games page drawn on the 12 × 6 phone grid: a library card and a shortcuts grid across the page
+    const lib = { x: 0, y: 0, w: 5, h: 2 }, keys = { x: 0, y: 2, w: 12, h: 4 };
+    const six = g.portraitLayout([keys, lib], 6);
+    const twelve = g.portraitLayout([keys, lib], 12);
+    return {
+      lib: six.pos.get(lib), keys: six.pos.get(keys), rows: six.rows,
+      twelveKeys: twelve.pos.get(keys),
+      sizes: [g.portraitSize({ w: 12, h: 6 }, 6), g.portraitSize({ w: 7, h: 6 }, 6), g.portraitSize({ w: 4, h: 3 }, 6)],
+    };
+  });
+  expect(r.lib).toEqual({ x: 0, y: 0, w: 5, h: 2 });
+  // before, the shortcuts were cut to 6 × 4 and the page stopped at row 6 of 12
+  expect(r.keys).toEqual({ x: 0, y: 2, w: 6, h: 8 });
+  expect(r.rows).toBe(12);
+  expect(r.twelveKeys).toEqual({ x: 0, y: 2, w: 12, h: 4 });
+  expect(r.sizes).toEqual([{ w: 6, h: 12 }, { w: 6, h: 7 }, { w: 4, h: 3 }]);
+});

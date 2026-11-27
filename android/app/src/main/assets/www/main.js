@@ -1,7 +1,7 @@
 // PhoneBox desk panel: core, pages, navigation and data from the agent. The widgets live in widgets/*.js;
 // they import what they need from here, so this module must not run code that needs them while it loads
 // (the start section at the end runs after every module has loaded).
-import { designGrid, gridForViewport, placeWidget, widgetsOnGrid } from './grid.js';
+import { designGrid, gridForViewport, placeWidget, portraitLayout, widgetsOnGrid } from './grid.js';
 import { W } from './registry.js';
 import './appearance.js';
 import { cached } from './widgets/helpers.js';
@@ -1610,20 +1610,6 @@ export let curPage = 0;
 let lastHour12 = null;
 
 export const isPortrait = () => window.innerHeight > window.innerWidth * 1.05;
-
-// Portrait: the same widgets packed in reading order. Their sizes in cells stay the same (portrait cells are about
-// as square as landscape ones). A phone uses 6 columns, so a widget wider than that shrinks; a tablet uses 12,
-// so more widgets sit next to each other. The rows grow to fit.
-export function portraitLayout(widgets, cols = 6) {
-  const occ = [], pos = new Map();
-  const free = (x, y, w, h) => { for (let r = y; r < y + h; r++) for (let c = x; c < x + w; c++) if (occ[r]?.[c]) return false; return true; };
-  const take = (x, y, w, h) => { for (let r = y; r < y + h; r++) { occ[r] = occ[r] || []; for (let c = x; c < x + w; c++) occ[r][c] = true; } };
-  for (const w of [...widgets].sort((a, b) => a.y - b.y || a.x - b.x)) {
-    const ww = Math.min(cols, w.w), hh = w.h;
-    search: for (let y = 0; y < 200; y++) for (let x = 0; x + ww <= cols; x++) if (free(x, y, ww, hh)) { take(x, y, ww, hh); pos.set(w, { x, y, w: ww, h: hh }); break search; }
-  }
-  return { pos, rows: Math.max(12, occ.length) };
-}
 
 // Settings › Display › More rows on a tablet. Off by default, so an arranged tablet keeps its 12 × 6 pages.
 const gridOptions = () => ({ tabletRows: cfg.display?.tabletRows === true });
