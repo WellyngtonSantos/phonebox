@@ -56,3 +56,31 @@ export function placeWidget(w, cols, rows) {
 export function widgetsOnGrid(widgets, cols, rows) {
   return (widgets || []).filter((w) => placeWidget(w, cols, rows));
 }
+
+// Upright: the same widgets packed in reading order. Their sizes in cells stay the same (portrait cells are about
+// as square as landscape ones). A phone uses 6 columns, so a widget wider than that shrinks; a tablet uses 12,
+// so more widgets sit next to each other. The rows grow to fit.
+export function portraitLayout(widgets, cols = 6) {
+  const occ = [], pos = new Map();
+  const free = (x, y, w, h) => { for (let r = y; r < y + h; r++) for (let c = x; c < x + w; c++) if (occ[r]?.[c]) return false; return true; };
+  const take = (x, y, w, h) => { for (let r = y; r < y + h; r++) { occ[r] = occ[r] || []; for (let c = x; c < x + w; c++) occ[r][c] = true; } };
+  for (const w of [...widgets].sort((a, b) => a.y - b.y || a.x - b.x)) {
+    const ww = Math.min(cols, w.w), hh = w.h;
+    search: for (let y = 0; y < 200; y++) for (let x = 0; x + ww <= cols; x++) if (free(x, y, ww, hh)) { take(x, y, ww, hh); pos.set(w, { x, y, w: ww, h: hh }); break search; }
+  }
+  return { pos, rows: Math.max(12, occ.length) };
+}
+
+/** The grid of a page arranged for upright in the editor; the agent's Catalog.UprightCols / UprightRows match it. */
+export const UPRIGHT_COLS = 6;
+export const UPRIGHT_ROWS = 12;
+
+/** Where a widget sits on a page's own upright layout, or null when it is left off it (or its place is unusable). */
+export function uprightPlace(w) {
+  const u = w?.upright;
+  if (!u || typeof u !== 'object') return null;
+  const n = (v, min, max) => Math.min(max, Math.max(min, Math.round(Number(v))));
+  if (![u.x, u.y, u.w, u.h].every((v) => Number.isFinite(Number(v)))) return null;
+  const ww = n(u.w, 1, UPRIGHT_COLS), hh = n(u.h, 1, UPRIGHT_ROWS);
+  return { x: n(u.x, 0, UPRIGHT_COLS - ww), y: n(u.y, 0, UPRIGHT_ROWS - hh), w: ww, h: hh };
+}
