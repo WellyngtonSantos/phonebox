@@ -5,8 +5,9 @@ using System.Text.Json;
 
 namespace PhoneBox.Agent;
 
-/// <summary>A game found outside Steam, as the phone sees it: an id ("x:" and a hash of its program), name and source.</summary>
-public sealed record OtherGame(string Id, string Name, string Source, bool Cover);
+/// <summary>A game found outside Steam, as the phone sees it: an id ("x:" and a hash of its program), name and source;
+/// <c>Cover</c>: a picture can be asked for; <c>Art</c>: it is the game's store art (portrait), not its program's icon.</summary>
+public sealed record OtherGame(string Id, string Name, string Source, bool Cover, bool Art = false);
 
 /// <summary>
 /// Games installed outside Steam, shown by the game library widget next to Steam's: found on their own, with nothing to
@@ -17,7 +18,7 @@ public sealed record OtherGame(string Id, string Name, string Source, bool Cover
 /// installers, uninstallers, crash reporters and redistributables are never chosen. Nothing is read while no library
 /// widget is on an enabled page. Windows only: on macOS and Linux nothing is found.
 /// </summary>
-public sealed class OtherGames(ConfigStore config, ILogger<OtherGames> log)
+public sealed class OtherGames(ConfigStore config, ILogger<OtherGames> log, GameCovers? covers = null)
 {
     /// <summary>A found game and how it starts: a launcher's own address (Epic, Ubisoft), or its program in its folder.</summary>
     internal sealed record Found(string Id, string Name, string Source, string Dir, string? Exe, string? Url);
@@ -28,6 +29,7 @@ public sealed class OtherGames(ConfigStore config, ILogger<OtherGames> log)
 
     private readonly Lock _gate = new();
     private List<Found> _found = [];
+    private Dictionary<string, string[]> _names = []; // the names each found game is looked up by in the store
     private long _scannedAt = -(1L << 40);
 
     internal Func<long> Clock { get; init; } = () => Environment.TickCount64;
@@ -38,6 +40,10 @@ public sealed class OtherGames(ConfigStore config, ILogger<OtherGames> log)
 
     /// <summary>A game library widget is on an enabled page.</summary>
     private bool Wanted() => config.Get().Widgets(enabledPagesOnly: true).Any(w => w.Type == "steam-library");
+
+    /// <summary>A library widget on an enabled page has "Covers from the Steam store" turned on (off by default).</summary>
+    private bool CoversWanted() => covers is not null
+        && config.Get().Widgets(enabledPagesOnly: true).Any(w => w.Type == "steam-library" && w.Bool("storeCovers") == true);
 
     /// <summary>The asking widget may start games (its own option; see SteamLibrary.LaunchAllowed).</summary>
     public bool LaunchAllowed(string? deviceId, string? widget) =>
@@ -56,8 +62,17 @@ public sealed class OtherGames(ConfigStore config, ILogger<OtherGames> log)
                 ? v.EnumerateArray().Where(x => x.ValueKind == JsonValueKind.String).Select(x => x.GetString()!) : [])
             .ToHashSet(StringComparer.Ordinal);
         var mine = c.Shortcuts.Where(s => ticked.Contains(s.Id) && ShortcutIcons.LooksLikeFilePath(s.Cmd)).Select(s => s.Cmd.Trim().Trim('"')).ToList();
-        return Shown(games, mine).OrderBy(g => g.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(g => new OtherGame(g.Id, g.Name, g.Source, g.Exe is not null)).ToList();
+        var shown = Shown(games, mine).OrderBy(g => g.Name, StringComparer.OrdinalIgnoreCase).ToList();
+        var art = CoversWanted();
+        if (art)
+        {
+            Dictionary<string, string[]> names;
+            lock (_gate) names = _names;
+            covers!.Want(shown.Select(g => (g.Id, names.GetValueOrDefault(g.Id) ?? [g.Name])));
+        }
+        return shown.Select(g => art && covers!.CoverFile(g.Id) is not null
+            ? new OtherGame(g.Id, g.Name, g.Source, true, true)
+            : new OtherGame(g.Id, g.Name, g.Source, g.Exe is not null)).ToList();
     }
 
     /// <summary>The found games but those whose folder holds one of <paramref name="mine"/> (programs your own games start).</summary>
@@ -88,9 +103,15 @@ public sealed class OtherGames(ConfigStore config, ILogger<OtherGames> log)
     private void Refresh()
     {
         List<Found> found;
-        try { found = Scan(Launchers(), Disks()); }
+        Dictionary<string, string[]> names = [];
+        try
+        {
+            found = Scan(Launchers(), Disks());
+            // the publisher's name for the game, carried by its program ("Grand Theft Auto IV" in a folder "GTA 4 LCPDFR")
+            foreach (var g in found) names[g.Id] = GameCovers.NamesOf(g.Name, g.Source == "epic" ? null : GameCovers.ProductName(g.Exe));
+        }
         catch (Exception ex) { log.LogWarning("could not look for other games: {Msg}", ex.Message); found = []; }
-        lock (_gate) { _found = found; _scannedAt = Clock(); _scanning = null; }
+        lock (_gate) { _found = found; _names = names; _scannedAt = Clock(); _scanning = null; }
     }
 
     private Task? _scanning;
@@ -387,13 +408,15 @@ public sealed class OtherGames(ConfigStore config, ILogger<OtherGames> log)
         return list;
     }
 
-    /// <summary>The icon of a found game's program, as a PNG, or null.</summary>
-    public byte[]? Cover(string? id)
+    /// <summary>A found game's picture: its store art (JPEG) when kept, else its program's icon (PNG); or null.</summary>
+    public (byte[] Bytes, string Type)? Cover(string? id)
     {
         if (id is null || !id.StartsWith("x:", StringComparison.Ordinal)) return null;
         var g = Games().FirstOrDefault(x => x.Id == id);
-        if (g?.Exe is null) return null;
-        return ShortcutIcons.Icon(new Shortcut { Id = id, Cmd = g.Exe });
+        if (g is null) return null;
+        if (CoversWanted() && covers!.CoverFile(id) is { } file)
+            try { return (File.ReadAllBytes(file), "image/jpeg"); } catch { }
+        return g.Exe is not null && ShortcutIcons.Icon(new Shortcut { Id = id, Cmd = g.Exe }) is { } png ? (png, "image/png") : null;
     }
 
     /// <summary>

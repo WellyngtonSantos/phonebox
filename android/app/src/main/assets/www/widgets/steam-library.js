@@ -70,14 +70,14 @@ export function ownGames(ids, shortcuts) {
 }
 
 /**
- * The games the agent found outside Steam, as tiles: their program's icon is the cover. One with the name of one of your
+ * The games the agent found outside Steam, as tiles: their store art (portrait) or else their program's icon is the cover. One with the name of one of your
  * own games (a shortcut ticked in "Other games") is left out, so a game is not shown twice.
  */
 export function otherGames(found, own = []) {
   const names = new Set(own.map((g) => g.name.trim().toLowerCase()));
   return (Array.isArray(found) ? found : []).filter((g) => g && typeof g.id === 'string' && g.id.startsWith('x:')
     && !names.has(String(g.name || '').trim().toLowerCase()))
-    .map((g) => ({ id: g.id, name: String(g.name || ''), source: String(g.source || ''), state: 'ready', progress: null, cover: g.cover === true }));
+    .map((g) => ({ id: g.id, name: String(g.name || ''), source: String(g.source || ''), state: 'ready', progress: null, cover: g.cover === true, art: g.art === true }));
 }
 
 // The installed Steam games: the favorites picked in the widget's options first, then the most recently played, with
@@ -127,7 +127,7 @@ W['steam-library'] = {
       const running = data?.running === g.id;
       const isArmed = armed === g.id;
       const status = isArmed ? t('w.steamlib.tapAgain') : gameStatus(g, running);
-      const b = h('button', 'sl-tile' + (running ? ' running' : '') + (favorites.has(g.id) ? ' fav' : '') + (g.shortcut || g.source ? ' own' : '') + (isArmed ? ' armed' : '') + (busy === g.id ? ' busy' : '')
+      const b = h('button', 'sl-tile' + (running ? ' running' : '') + (favorites.has(g.id) ? ' fav' : '') + (g.shortcut || (g.source && !g.art) ? ' own' : '') + (isArmed ? ' armed' : '') + (busy === g.id ? ' busy' : '')
         + (g.state !== 'ready' ? ' sl-' + g.state : ''), gameCover(g),
         h('span', 'sl-name', g.name), status ? h('span', 'sl-status', status) : null);
       b.type = 'button';

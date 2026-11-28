@@ -1857,6 +1857,7 @@ window.PhoneBoxLocaleData = Object.assign(window.PhoneBoxLocaleData || {}, {
       "Show only the favorite games": "Показувати лише улюблені ігри",
       "Other games: shortcuts shown as games, after the favorites": "Інші ігри: ярлики, показані як ігри, після обраних",
       "Games shown": "Скільки ігор показувати",
+      "Covers from the Steam store for the games found outside Steam (sends their names to the store)": "Обкладинки з крамниці Steam для ігор, знайдених поза Steam (їхні назви надсилаються до крамниці)",
       "Let the phone start games (off: the library is only shown)": "Телефон може запускати ігри (вимк.: бібліотека лише показується)",
       "Ask before starting (tap a game twice)": "Питати перед запуском (торкнутися гри двічі)",
       "Plex queue": "Черга Plex",
